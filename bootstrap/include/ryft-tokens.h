@@ -79,6 +79,7 @@ typedef enum ryft_tokens
     RYFT_DATATYPE(TOKEN)
     RYFT_BOOL_LITERAL(TOKEN)
     RYFT_NUM_LITERAL(TOKEN)
+    RYFT_OPERATOR(TOKEN)
     RYFT_TOKEN_COUNT
 } ryft_tokens_t;
 // clang-format on
