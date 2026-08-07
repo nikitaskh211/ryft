@@ -102,7 +102,4 @@ typedef struct ryft_token
 #undef TOKEN
 #endif
 
-/* Ryft tokenizing function */
-size_t ryft_tokenize(const char *src, ryft_token_t *tokens);
-
 #endif // !RYFT_TOKENS_H

@@ -1,5 +1,5 @@
 /* Ryft includes */
-#include "../include/ryft-tokens.h"
+#include "../include/ryft-token.h"
 
 /* TOKEN macro safety */
 #ifdef TOKEN
