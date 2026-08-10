@@ -52,9 +52,10 @@ static size_t ryft_lexer_token_length(const char *cursor) {
     /* Anything starting from a digit, optionally containing a dot, an
      * underscoore or a letter is to be considered a number literal */
     length++;
-    while (ryft_is_digit(cursor[length]) || cursor[length] == '.' ||
-           cursor[length] == '_' || ryft_is_letter(cursor[length]) ||
-           cursor[length] == '+' || cursor[length] == '-') {
+    while (ryft_is_digit(cursor[length]) || ryft_is_letter(cursor[length]) ||
+           cursor[length] == '.' || cursor[length] == '_' ||
+           (cursor[length - 1] == 'e' || cursor[length - 1] == 'E') &&
+               (cursor[length] == '+' || cursor[length] == '-')) {
       length++;
     }
   } else if (cursor[length] == '\'') {
@@ -169,10 +170,10 @@ static int ryft_is_octal(const char c) {
  */
 static int ryft_is_hexadecimal(const char c) {
   /* Main nested else-if */
-  if (('0' <= c && c <= '9') && ('a' <= c && c <= 'f')) {
+  if (('0' <= c && c <= '9') || ('a' <= c && c <= 'f')) {
     /* This would be appropriate for a hexadecimal value */
     return 1;
-  } else if (('0' <= c && c <= '9') && ('A' <= c && c <= 'F')) {
+  } else if (('0' <= c && c <= '9') || ('A' <= c && c <= 'F')) {
     /* This would also be appropriate for a hexadecimal value */
     return 2;
   } else {
@@ -184,9 +185,7 @@ static int ryft_is_hexadecimal(const char c) {
 /* A function that determines whether a literal is an integer */
 static int ryft_is_int_literal(size_t lit_size, const char *lit_str) {
   /* Early return conditions */
-  if (lit_size == 0) {
-    return 0;
-  } else if (lit_str == NULL) {
+  if (lit_size == 0 || lit_str == NULL) {
     return 0;
   }
   /* Declaring some variables for control flow */
@@ -244,7 +243,7 @@ static int ryft_is_int_literal(size_t lit_size, const char *lit_str) {
     prev_was_digit = 'y';
   }
   i_suffix = i;
-  if (i > i_begin && lit_str[i - 1] == '_') {
+  if (prev_was_digit != 'y') {
     return 0;
   }
   /* Suffix check */
@@ -264,7 +263,82 @@ static int ryft_is_int_literal(size_t lit_size, const char *lit_str) {
 }
 
 /* A function that determines whether a literal is a float */
-static int ryft_is_float_literal(size_t lit_size, const char *lit_str) {}
+static int ryft_is_float_literal(size_t lit_size, const char *lit_str) {
+  /* Early return conditions */
+  if (lit_size == 0 || lit_str == NULL) {
+    return 0;
+  }
+  /* Declaring some variables for control flow */
+  char prev_was_digit = 'n', has_dot = 'n', has_exp = 'n', after_exp = 'n';
+  /* Main validation loop */
+  size_t i, i_suffix;
+  for (i = (size_t)0; i < lit_size; i++) {
+    /* If it has no valid characters break the cycle an go to a suffix check */
+    // clang-format off
+    if (!ryft_is_digit(lit_str[i]) && 
+        lit_str[i] != '_' && lit_str[i] != '.' &&
+        lit_str[i] != 'e' && lit_str[i] != 'E' && 
+        lit_str[i] != '+' && lit_str[i] != '-') {
+      break;
+    }
+    // clang-format on
+    /* Check valid characters */
+    switch (lit_str[i]) {
+    case '_':
+      if (prev_was_digit != 'y') {
+        return 0;
+      }
+      prev_was_digit = 'n';
+      break;
+    case '.':
+      if (prev_was_digit != 'y' || has_dot == 'y' || has_exp == 'y') {
+        return 0;
+      }
+      prev_was_digit = 'n';
+      has_dot = 'y';
+      break;
+    case 'e':
+    case 'E':
+      if (prev_was_digit != 'y' || has_exp == 'y') {
+        return 0;
+      }
+      prev_was_digit = 'n';
+      has_exp = 'y';
+      after_exp = 'y';
+      break;
+    case '+':
+    case '-':
+      if (after_exp != 'y') {
+        return 0;
+      }
+      after_exp = 'n';
+      break;
+    default:
+      if (!ryft_is_digit(lit_str[i])) {
+        return 0;
+      }
+      prev_was_digit = 'y';
+      after_exp = 'n';
+      break;
+    }
+  }
+  if (prev_was_digit != 'y') {
+    return 0;
+  }
+  i_suffix = i;
+  /* Suffix check */
+  if (i_suffix == lit_size) {
+    return 1;
+  } else {
+    for (size_t j = 0; j < ryft_numeric_float_datatypes_count; j++) {
+      if (ryft_c_str_n_cmp(lit_size - i_suffix, ryft_numeric_float_datatypes[j],
+                           lit_str + i_suffix)) {
+        return 1;
+      }
+    }
+    return 0;
+  }
+}
 
 /* A function that tokenizes the string of characters and returns a pointer to
  * the array of tokens */
